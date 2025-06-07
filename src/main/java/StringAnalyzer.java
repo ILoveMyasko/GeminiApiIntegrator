@@ -13,22 +13,11 @@ import java.util.Map;
 
 public class StringAnalyzer implements Analyzer<String>{
 
-    private int currentMode;
-
-    public StringAnalyzer() {
-        currentMode = Mode.FINAL;
-    }
-    public StringAnalyzer(int mode) {
-        if (mode != Mode.ORIGINAL && mode != Mode.CLEANED &&
-                mode != Mode.PURIFIED && mode != Mode.FINAL) {
-            System.err.println("Предупреждение: Задан некорректный режим " + mode + ". Используется режим ORIGINAL по умолчанию.");
-            this.currentMode = Mode.ORIGINAL;
-        } else {
-            this.currentMode = mode;
-        }
-
-    }
-
+    private static final String rawInputPath = "rawHtml.txt";
+    private static final String htmlCleanedOutputPath = "cleanedHtml.txt";
+    private static final String geminiBasePromptInputPath = "baseGeminiPrompt.txt";
+    private static final String geminiApiOutputPath = "geminiOutput.txt";
+    private static final String geminiPromptOutputPath = "geminiPromptOutput.txt";
     /**
      * Метод выполняет анализ заданного исходного набора данных.
      *
@@ -45,32 +34,27 @@ public class StringAnalyzer implements Analyzer<String>{
         if (htmlText == null) {
             throw new IntegratorException("Data is null");
         }
-        final String rawInputPath = "rawHtml.txt";
-        final String htmlCleanedOutputPath = "cleanedHtml.txt";
-        final String geminiBasePromptInputPath = "baseGeminiPrompt.txt";
-        final String geminiApiOutputPath = "geminiOutput.txt";
-        final String geminiPromptOutputPath = "geminiPromptOutput.txt";
 
         String rawHtml = readFromFile(rawInputPath);
+
+        // remove HTML tags
         Document doc = Jsoup.parse(rawHtml);
         doc.select("noscript, script, style, iframe, link[rel=stylesheet], meta, head title")
                 .remove();
-
         String processedHtml = doc.text();
         writeToFile(htmlCleanedOutputPath, processedHtml);
 
+        // read config
         Map<String, String> configValues =
                 ConfigReader.readSpecificProperties("object", "additions", "targets");
-
         String objectValue = configValues.get("object");
-        //String additionsValue = configValues.get("additions");
         String targetsValue = configValues.get("targets");
 
         String promptTemplate = readFromFile(geminiBasePromptInputPath);
+        // assemble final prompt
         String finalGeminiPrompt = promptTemplate
                 .replace("{{ИСХОДНЫЙ_ТЕКСТ}}", processedHtml)
                 .replace("{{OBJECT_VALUES}}", objectValue)
-                //.replace("{{ADDITIONS_VALUES}}", additionsValue)
                 .replace("{{TARGETS_VALUES}}", targetsValue);
 
         writeToFile(geminiPromptOutputPath,finalGeminiPrompt);
@@ -81,6 +65,12 @@ public class StringAnalyzer implements Analyzer<String>{
     }
 
     public static void writeToFile(String outputFilePath, String content) {
+        if (outputFilePath == null) {
+            throw new NullPointerException("Путь к файлу не может быть null");
+        }
+        if (content == null) {
+            throw new NullPointerException("Содержимое для записи не может быть null");
+        }
         try {
             Files.writeString(Paths.get(outputFilePath), content);
             System.out.println("Успешно записал в файл: " + outputFilePath);
@@ -92,35 +82,39 @@ public class StringAnalyzer implements Analyzer<String>{
     }
 
     public static String readFromFile(String inputFilePath) {
-        String output = "";
         try {
-            output = Files.readString(Paths.get(inputFilePath));
+            return Files.readString(Paths.get(inputFilePath));
         } catch (IOException e) {
             System.err.println("Критическая ошибка: Не удалось прочитать файл "
                     + inputFilePath + "': " + e.getMessage());
             throw new RuntimeException("Ошибка чтения файла: " + inputFilePath, e);
         }
-        return output;
     }
 
     public static String makeApiCall(String processedHtml, String prompt) {
+
+        if (processedHtml == null || prompt == null) {
+            System.err.println("Ошибка: processedHtml или prompt не могут быть null.");
+            throw new IllegalArgumentException("Ошибка: processedHtml или prompt не могут быть null.");
+        }
+
         final String modelName = "gemini-2.5-flash-preview-05-20";
-        Client client = new Client();
-        GenerateContentResponse response = null;
-        try {
+        GenerateContentResponse response;
+        String responseText = null;
+        try (Client client = new Client()){
             String fullPrompt = prompt + processedHtml;
             response = client.models.generateContent(modelName, fullPrompt,
                     GenerateContentConfig.builder()
                             .temperature(0.05f)
                             .topP(0.95f)
                             .build());
+            responseText = response.text();
         } catch (ClientException e) {
             System.err.println("Ошибка клиента API: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Неожиданная ошибка при вызове API или обработке ответа: " + e.getMessage());
         }
-
-        return response.text();
+        return responseText;
     }
 
 

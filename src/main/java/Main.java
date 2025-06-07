@@ -22,7 +22,7 @@ public class Main {
         final String rawInputPath = "rawHtml.txt";
         final String htmlCleanedOutputPath = "cleanedHtml.txt";
         final String geminiBasePromptInputPath = "baseGeminiPrompt.txt";
-        final String geminiApiOutputPath = "geminiOutput.txt";
+        final String geminiApiOutputPath = "result.txt";
         final String geminiPromptOutputPath = "geminiPromptOutput.txt";
 
         String rawHtml = readFromFile(rawInputPath);
@@ -43,14 +43,20 @@ public class Main {
                 .replace("{{ИСХОДНЫЙ_ТЕКСТ}}", processedHtml)
                 .replace("{{OBJECT_VALUES}}", objectValue)
                 .replace("{{TARGETS_VALUES}}", targetsValue);
-
         writeToFile(geminiPromptOutputPath,finalGeminiPrompt);
+
         String geminiOutput = makeApiCall(processedHtml, finalGeminiPrompt);
         writeToFile(geminiApiOutputPath, geminiOutput);
 
     }
 
     public static void writeToFile(String outputFilePath, String content) {
+        if (outputFilePath == null) {
+            throw new NullPointerException("Путь к файлу не может быть null");
+        }
+        if (content == null) {
+            throw new NullPointerException("Содержимое для записи не может быть null");
+        }
         try {
             Files.writeString(Paths.get(outputFilePath), content);
             System.out.println("Успешно записал в файл: " + outputFilePath);
@@ -62,37 +68,38 @@ public class Main {
     }
 
     public static String readFromFile(String inputFilePath) {
-        String output = "";
         try {
-            output = Files.readString(Paths.get(inputFilePath));
+            return Files.readString(Paths.get(inputFilePath));
         } catch (IOException e) {
             System.err.println("Критическая ошибка: Не удалось прочитать файл "
                     + inputFilePath + "': " + e.getMessage());
             throw new RuntimeException("Ошибка чтения файла: " + inputFilePath, e);
         }
-        return output;
     }
 
     public static String makeApiCall(String processedHtml, String prompt) {
+        if (processedHtml == null || prompt == null) {
+            System.err.println("Ошибка: processedHtml или prompt не могут быть null.");
+            throw new IllegalArgumentException("Ошибка: processedHtml или prompt не могут быть null.");
+        }
+
         final String modelName = "gemini-2.5-flash-preview-05-20";
-        Client client = new Client();
-        GenerateContentResponse response = null;
-        try {
+        GenerateContentResponse response;
+        String responseText = null;
+        try (Client client = new Client()){
             String fullPrompt = prompt + processedHtml;
             response = client.models.generateContent(modelName, fullPrompt,
                     GenerateContentConfig.builder()
-                            .temperature(0.05f)
+                            .temperature(0.01f)
                             .topP(0.95f)
                             .build());
+            responseText = response.text();
         } catch (ClientException e) {
             System.err.println("Ошибка клиента API: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Неожиданная ошибка при вызове API или обработке ответа: " + e.getMessage());
         }
-        if (response == null) {
-            throw new RuntimeException("Error communicating with Gemini API client");
-        }
-        return response.text();
+        return responseText;
     }
 
 
