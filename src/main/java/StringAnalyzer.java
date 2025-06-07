@@ -1,13 +1,6 @@
-import com.google.genai.Client;
-import com.google.genai.errors.ClientException;
-import com.google.genai.types.GenerateContentConfig;
-import com.google.genai.types.GenerateContentResponse;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Map;
 
 public class StringAnalyzer implements Analyzer<String>{
@@ -17,12 +10,25 @@ public class StringAnalyzer implements Analyzer<String>{
     private static final String geminiBasePromptInputPath = "baseGeminiPrompt.txt";
     private static final String geminiApiOutputPath = "geminiOutput.txt";
     private static final String geminiPromptOutputPath = "geminiPromptOutput.txt";
+
     /**
-     * Метод выполняет анализ заданного исходного набора данных.
+     * Выполняет анализ заданного исходного набора данных:
+     * 1. Считывает «сырое» HTML из файла {@value #rawInputPath}.
+     * 2. Удаляет теги {@code <noscript>}, {@code <script>}, {@code <style>}, {@code <iframe>}
+     * 3. Пишет очищенный текст в {@value #htmlCleanedOutputPath}.
+     * 4. Считывает конфигурацию из properties «object», «additions», «targets».
+     * 5. Строит prompt по шаблону из {@value #geminiBasePromptInputPath}.
+     * 6. Записывает финальный prompt в {@value #geminiPromptOutputPath}.
+     * 7. Вызывает Gemini API через {@link ApiCaller#makeApiCall(String, String)}.
+     * 8. Пишет ответ LLM в {@value #geminiApiOutputPath}.
      *
-     * @param data исходный набор данных для анализа.
-     * @return результат анализа исходного набора данных в формате исходного набора данных.
-     * @throws IntegratorException выбрасывается в случае невозможности выполнить анализ данных.
+     * @param data исходный набор данных для анализа. Обязательно ненулевой,
+     *             и {@link Data#getContent()} тоже не должен быть null.
+     * @return Пока всегда возвращает null (запись результата производится в файл).
+     *         В будущем здесь должен возвращаться {@code Data<String>}
+     *         с результатом анализа (LLM-ответом).
+     * @throws IntegratorException если {@code data} или его содержимое null.
+     * @throws RuntimeException    если падает чтение/запись файлов или сборка prompt.
      */
     @Override
     public Data<String> analyze(Data<String> data) throws IntegratorException {
@@ -34,87 +40,39 @@ public class StringAnalyzer implements Analyzer<String>{
             throw new IntegratorException("Data is null");
         }
 
-        String rawHtml = readFromFile(rawInputPath);
+        String rawHtml = FileHandler.readFromFile(rawInputPath);
 
         // remove HTML tags
         Document doc = Jsoup.parse(rawHtml);
         doc.select("noscript, script, style, iframe, link[rel=stylesheet], meta, head title")
                 .remove();
         String processedHtml = doc.text();
-        writeToFile(htmlCleanedOutputPath, processedHtml);
+        FileHandler.writeToFile(htmlCleanedOutputPath, processedHtml);
 
         // read config
         Map<String, String> configValues =
-                ConfigReader.readSpecificProperties("object", "additions", "targets");
+                FileHandler.readSpecificProperties("object", "additions", "targets");
         String objectValue = configValues.get("object");
         String targetsValue = configValues.get("targets");
 
-        String promptTemplate = readFromFile(geminiBasePromptInputPath);
+        String promptTemplate = FileHandler.readFromFile(geminiBasePromptInputPath);
         // assemble final prompt
         String finalGeminiPrompt = promptTemplate
                 .replace("{{ИСХОДНЫЙ_ТЕКСТ}}", processedHtml)
                 .replace("{{OBJECT_VALUES}}", objectValue)
                 .replace("{{TARGETS_VALUES}}", targetsValue);
 
-        writeToFile(geminiPromptOutputPath,finalGeminiPrompt);
-        String geminiOutput = makeApiCall(processedHtml, finalGeminiPrompt);
-        writeToFile(geminiApiOutputPath, geminiOutput);
+        FileHandler.writeToFile(geminiPromptOutputPath,finalGeminiPrompt);
+        String geminiOutput = ApiCaller.makeApiCall(processedHtml, finalGeminiPrompt);
+        FileHandler.writeToFile(geminiApiOutputPath, geminiOutput);
 
+        //возвращаю null, потому что реализации Data у меня нет. Это нестрашно, потому что запись в файл результата
+        //все равно будет
         return null;
     }
 
-    public static void writeToFile(String outputFilePath, String content) {
-        if (outputFilePath == null) {
-            throw new NullPointerException("Путь к файлу не может быть null");
-        }
-        if (content == null) {
-            throw new NullPointerException("Содержимое для записи не может быть null");
-        }
-        try {
-            Files.writeString(Paths.get(outputFilePath), content);
-            System.out.println("Успешно записал в файл: " + outputFilePath);
-        } catch (IOException e) {
-            System.err.println("Ошибка: Не удалось записать  в файл '" + outputFilePath + "': " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Exception: " + e.getMessage());
-        }
-    }
 
-    public static String readFromFile(String inputFilePath) {
-        try {
-            return Files.readString(Paths.get(inputFilePath));
-        } catch (IOException e) {
-            System.err.println("Критическая ошибка: Не удалось прочитать файл "
-                    + inputFilePath + "': " + e.getMessage());
-            throw new RuntimeException("Ошибка чтения файла: " + inputFilePath, e);
-        }
-    }
 
-    public static String makeApiCall(String processedHtml, String prompt) {
-
-        if (processedHtml == null || prompt == null) {
-            System.err.println("Ошибка: processedHtml или prompt не могут быть null.");
-            throw new IllegalArgumentException("Ошибка: processedHtml или prompt не могут быть null.");
-        }
-
-        final String modelName = "gemini-2.5-flash-preview-05-20";
-        GenerateContentResponse response;
-        String responseText = null;
-        try (Client client = new Client()){
-            String fullPrompt = prompt + processedHtml;
-            response = client.models.generateContent(modelName, fullPrompt,
-                    GenerateContentConfig.builder()
-                            .temperature(0.05f)
-                            .topP(0.95f)
-                            .build());
-            responseText = response.text();
-        } catch (ClientException e) {
-            System.err.println("Ошибка клиента API: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Неожиданная ошибка при вызове API или обработке ответа: " + e.getMessage());
-        }
-        return responseText;
-    }
 
 
     /**
