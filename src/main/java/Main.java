@@ -5,6 +5,7 @@ import com.google.genai.errors.ClientException;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 
+import com.google.genai.types.ThinkingConfig;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -51,9 +52,6 @@ public class Main {
         String geminiOutput = makeApiCall(processedHtml, finalGeminiPrompt);
         writeToFile(geminiApiOutputPath, geminiOutput);
 
-
-
-
     }
 
     public static void writeToFile(String outputFilePath, String content) {
@@ -95,7 +93,9 @@ public class Main {
         } catch (Exception e) {
             System.err.println("Неожиданная ошибка при вызове API или обработке ответа: " + e.getMessage());
         }
-
+        if (response == null) {
+            throw new RuntimeException("Error communicating with Gemini API client");
+        }
         return response.text();
     }
 
