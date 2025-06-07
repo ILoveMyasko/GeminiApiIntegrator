@@ -5,7 +5,6 @@ import com.google.genai.errors.ClientException;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 
-import com.google.genai.types.ThinkingConfig;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -16,7 +15,7 @@ import java.util.Map;
 
 public class Main {
 
-
+    //Реализация Main, использованная для тестирования за неимением полного кода программы.
     public static void main(String[] args) {
         // The client gets the API key from the environment variable `GOOGLE_API_KEY`.
         final String rawInputPath = "rawHtml.txt";
@@ -34,7 +33,7 @@ public class Main {
         writeToFile(htmlCleanedOutputPath, processedHtml);
 
         Map<String, String> configValues =
-                ConfigReader.readSpecificProperties("object", "additions", "targets");
+                FileHandler.readSpecificProperties("object", "additions", "targets");
         String objectValue = configValues.get("object");
         String targetsValue = configValues.get("targets");
 
