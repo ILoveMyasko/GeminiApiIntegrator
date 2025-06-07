@@ -2,7 +2,6 @@ import com.google.genai.Client;
 import com.google.genai.errors.ClientException;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
-import com.google.genai.types.ThinkingConfig;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
