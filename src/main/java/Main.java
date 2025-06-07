@@ -72,9 +72,9 @@ public class Main {
         try {
             output = Files.readString(Paths.get(inputFilePath));
         } catch (IOException e) {
-            System.err.println("Критическая ошибка: Не удалось прочитать входной файл промпта '"
+            System.err.println("Критическая ошибка: Не удалось прочитать файл "
                     + inputFilePath + "': " + e.getMessage());
-            throw new RuntimeException("Ошибка чтения файла промпта: " + inputFilePath, e);
+            throw new RuntimeException("Ошибка чтения файла: " + inputFilePath, e);
         }
         return output;
     }
