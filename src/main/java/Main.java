@@ -22,7 +22,6 @@ public class Main {
         final String rawInputPath = "rawHtml.txt";
         final String htmlCleanedOutputPath = "cleanedHtml.txt";
         final String geminiBasePromptInputPath = "baseGeminiPrompt.txt";
-        //final String propertiesInputPath = "properties.cfg";
         final String geminiApiOutputPath = "geminiOutput.txt";
         final String geminiPromptOutputPath = "geminiPromptOutput.txt";
 
@@ -36,16 +35,13 @@ public class Main {
 
         Map<String, String> configValues =
                 ConfigReader.readSpecificProperties("object", "additions", "targets");
-
         String objectValue = configValues.get("object");
-        //String additionsValue = configValues.get("additions");
         String targetsValue = configValues.get("targets");
 
         String promptTemplate = readFromFile(geminiBasePromptInputPath);
         String finalGeminiPrompt = promptTemplate
                 .replace("{{ИСХОДНЫЙ_ТЕКСТ}}", processedHtml)
                 .replace("{{OBJECT_VALUES}}", objectValue)
-                //.replace("{{ADDITIONS_VALUES}}", additionsValue)
                 .replace("{{TARGETS_VALUES}}", targetsValue);
 
         writeToFile(geminiPromptOutputPath,finalGeminiPrompt);
