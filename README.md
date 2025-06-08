@@ -1,0 +1,11 @@
+Тестовый запуск можно сделать вот так:
+```
+docker build -t gemini-integrator-doh-image .
+```
+```
+docker run --rm --name integrator-gemini-doh --dns 8.8.8.8 gemini-integrator-doh-image
+```
+```
+docker cp integrator-gemini-doh:/app C:\temp\output
+```
+

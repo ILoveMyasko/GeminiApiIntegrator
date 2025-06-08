@@ -11,7 +11,6 @@ RUN gradle --no-daemon clean jar -x test --stacktrace --info
 FROM eclipse-temurin:21-jre-jammy
 
 
-# Переменные окружения для версий и настроек
 ENV CLOUDFLARED_VERSION=2025.5.0
 ENV DEBIAN_FRONTEND=noninteractive
 
