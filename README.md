@@ -1,4 +1,4 @@
-Тестовый запуск можно сделать вот так:
+How to run (specify your API KEY in Dockerfile):
 ```
 docker build -t gemini-integrator-doh-image .
 ```
